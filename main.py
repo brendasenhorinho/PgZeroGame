@@ -1,10 +1,12 @@
 import pgzrun
 from pygame import Rect
+import pygame
 
 WIDTH, HEIGHT = 800, 500
 GAME_MENU, GAME_PLAYING = "menu", "playing"
 game_state = GAME_MENU
 audio_on = True
+music_playing = False
 
 BTN_W, BTN_H = 300, 40
 
@@ -26,16 +28,30 @@ def draw():
         draw_button(f"Audio: {'ON' if audio_on else 'OFF'}", (WIDTH / 2, 320))
         draw_button("Quit", (WIDTH / 2, 380))
     elif game_state == GAME_PLAYING:
-        screen.blit("background",(0,0))
+        screen.blit("background", (0, 0))
+
+def toggle_music():
+    global music_playing
+    if audio_on and game_state == GAME_PLAYING:
+        if not music_playing:
+            pygame.mixer.music.load("sounds/musica.mp3")
+            pygame.mixer.music.play(-1)  # Loop infinito
+            music_playing = True
+    else:
+        pygame.mixer.music.stop()
+        music_playing = False
 
 def on_mouse_down(pos, button):
     global game_state, audio_on
     if game_state == GAME_MENU:
         if btn_rect(WIDTH / 2, 260).collidepoint(pos):
             game_state = GAME_PLAYING
+            toggle_music()
         elif btn_rect(WIDTH / 2, 320).collidepoint(pos):
             audio_on = not audio_on
+            toggle_music()
         elif btn_rect(WIDTH / 2, 380).collidepoint(pos):
+            pygame.mixer.music.stop()
             exit()
 
 pgzrun.go()
