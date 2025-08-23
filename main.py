@@ -32,17 +32,23 @@ def draw():
 
 def toggle_music():
     global music_playing
-    if audio_on and game_state == GAME_PLAYING:
+    if audio_on:
         if not music_playing:
-            pygame.mixer.music.load("sounds/musica.mp3")
-            pygame.mixer.music.play(-1)  # Loop infinito
+            pygame.mixer.music.load("sounds/music.mp3")
+            pygame.mixer.music.play(-1)
             music_playing = True
     else:
         pygame.mixer.music.stop()
         music_playing = False
 
+
+
 def on_mouse_down(pos, button):
     global game_state, audio_on
+
+    if audio_on:
+        sounds.click.play() 
+
     if game_state == GAME_MENU:
         if btn_rect(WIDTH / 2, 260).collidepoint(pos):
             game_state = GAME_PLAYING
@@ -53,5 +59,10 @@ def on_mouse_down(pos, button):
         elif btn_rect(WIDTH / 2, 380).collidepoint(pos):
             pygame.mixer.music.stop()
             exit()
+
+
+
+if audio_on:
+    toggle_music()
 
 pgzrun.go()
