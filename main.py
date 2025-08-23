@@ -8,24 +8,29 @@ audio_on = True
 music_playing = False
 BTN_W, BTN_H = 300, 40
 
-# Plataformas com tamanhos reais
+# Plataformas
 platforms = [
     {"image": "platform_large", "rect": Rect(0, 390, 250, 62)},
     {"image": "platform_small", "rect": Rect(350, 360, 100, 50)},
-    {"image": "platform_large", "rect": Rect(550, 290, 250, 62)},
-    {"image": "platform_large", "rect": Rect(220, 180, 250, 62)},
+    {"image": "platform_large", "rect": Rect(550, 290, 250, 62)},  # Terceira
+    {"image": "platform_large", "rect": Rect(220, 180, 250, 62)},  # Quarta
     {"image": "platform_small", "rect": Rect(40, 110, 100, 50)}
 ]
 
 class Player:
     def __init__(self, x, y):
         self.image = "player_idle1"
-        self.rect = Rect(x, y, 50, 84)
+        self.rect = Rect(x, y, 50, 82)
         self.vy = 0
         self.on_ground = False
-        self.walk_images = ["player_walk1", "player_walk2"]
+        self.walk_images_right = ["player_walk1_right", "player_walk2_right"]
+        self.walk_images_left = ["player_walk1_left", "player_walk2_left"]
         self.walk_index = 0
         self.walk_timer = 0
+        self.facing_right = True
+        self.idle_images = ["player_idle1", "player_idle2"]
+        self.idle_index = 0
+        self.idle_timer = 0
 
     def draw(self):
         screen.blit(self.image, (self.rect.x, self.rect.y))
@@ -50,28 +55,80 @@ class Player:
         if not collided:
             self.rect.y += self.vy
 
-        # Animação de pulo
         if not self.on_ground:
             self.image = "player_jump1"
         else:
-            # Animação de caminhada
+            if keyboard.left or keyboard.a:
+                self.facing_right = False
+            elif keyboard.right or keyboard.d:
+                self.facing_right = True
+
             if keyboard.left or keyboard.right or keyboard.a or keyboard.d:
                 self.walk_timer += 1
                 if self.walk_timer % 10 == 0:
-                    self.walk_index = (self.walk_index + 1) % len(self.walk_images)
-                self.image = self.walk_images[self.walk_index]
+                    self.walk_index = (self.walk_index + 1) % 2
+                self.image = self.walk_images_right[self.walk_index] if self.facing_right else self.walk_images_left[self.walk_index]
             else:
-                self.image = "player_idle1"
+                self.idle_timer += 1
+                if self.idle_timer % 60 == 0:
+                    self.idle_index = (self.idle_index + 1) % len(self.idle_images)
+                self.image = self.idle_images[self.idle_index]
 
     def jump(self):
         if self.on_ground:
-            self.vy = -18  # pulo mais forte
+            self.vy = -18
             if audio_on:
                 sounds.jump.play()
 
+class Enemy:
+    def __init__(self, x, y):
+        self.rect = Rect(x, y, 50, 82)
+        self.walk_images_right = ["enemy_walk1_right", "enemy_walk2_right"]
+        self.walk_images_left = ["enemy_walk1_left", "enemy_walk2_left"]
+        self.walk_index = 0
+        self.walk_timer = 0
+        self.facing_right = True
+        self.image = self.walk_images_right[0]
+        self.speed = 2
+
+        self.on_platform = None
+        for plat in platforms:
+            if self.rect.bottom <= plat["rect"].top + 10 and \
+               self.rect.centerx >= plat["rect"].x and \
+               self.rect.centerx <= plat["rect"].x + plat["rect"].width:
+                self.rect.bottom = plat["rect"].top
+                self.on_platform = plat["rect"]
+                break
+
+        if self.on_platform:
+            self.left_limit = self.on_platform.x
+            self.right_limit = self.on_platform.x + self.on_platform.width
+        else:
+            self.left_limit = 0
+            self.right_limit = WIDTH
+
+    def draw(self):
+        screen.blit(self.image, (self.rect.x, self.rect.y))
+
+    def update(self):
+        if self.facing_right:
+            self.rect.x += self.speed
+            if self.rect.x + self.rect.width >= self.right_limit:
+                self.facing_right = False
+        else:
+            self.rect.x -= self.speed
+            if self.rect.x <= self.left_limit:
+                self.facing_right = True
+
+        self.walk_timer += 1
+        if self.walk_timer % 15 == 0:
+            self.walk_index = (self.walk_index + 1) % 2
+        self.image = self.walk_images_right[self.walk_index] if self.facing_right else self.walk_images_left[self.walk_index]
+
+# Criação dos personagens
 player = Player(100, 300)
-
-
+enemy1 = Enemy(550 + (250 - 50) // 2, 290 - 82)  # Terceira plataforma
+enemy2 = Enemy(220 + (250 - 50) // 2, 180 - 82)  # Quarta plataforma
 
 def draw():
     screen.clear()
@@ -86,26 +143,27 @@ def draw():
         screen.blit("background", (0, 0))
         for plat in platforms:
             screen.blit(plat["image"], (plat["rect"].x, plat["rect"].y))
-            screen.draw.rect(plat["rect"], (0, 255, 0))  # verde: colisão da plataforma
+            screen.draw.rect(plat["rect"], (0, 255, 0))
 
         player.draw()
-        screen.draw.rect(player.rect, (255, 0, 0))  # vermelho: colisão do jogador
-
+        screen.draw.rect(player.rect, (255, 0, 0))
         feet = Rect(player.rect.x, player.rect.bottom - 4, player.rect.width, 4)
-        screen.draw.rect(feet, (0, 0, 255))  # azul: área dos pés
+        screen.draw.rect(feet, (0, 0, 255))
+
+        enemy1.draw()
+        enemy2.draw()
 
 def update():
     if game_state == GAME_PLAYING:
-        # Movimento lateral
         if keyboard.left or keyboard.a:
             player.rect.x -= 5
         if keyboard.right or keyboard.d:
             player.rect.x += 5
 
-        # Limite da tela
         player.rect.x = max(0, min(player.rect.x, WIDTH - player.rect.width))
-
         player.update()
+        enemy1.update()
+        enemy2.update()
 
 def on_key_down(key):
     if game_state == GAME_PLAYING:
