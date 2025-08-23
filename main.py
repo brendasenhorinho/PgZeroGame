@@ -7,16 +7,16 @@ game_state = GAME_MENU
 audio_on = True
 music_playing = False
 BTN_W, BTN_H = 300, 40
+player_hurt = False
+hurt_timer = 0
 
-# Plataformas
 platforms = [
     {"image": "platform_large", "rect": Rect(0, 390, 250, 62)},
     {"image": "platform_small", "rect": Rect(350, 360, 100, 50)},
-    {"image": "platform_large", "rect": Rect(550, 290, 250, 62)},  # Terceira
-    {"image": "platform_large", "rect": Rect(220, 180, 250, 62)},  # Quarta
-    {"image": "platform_small", "rect": Rect(40, 110, 100, 50)}
-]
-
+    {"image": "platform_large", "rect": Rect(550, 290, 250, 62)},
+    {"image": "platform_large", "rect": Rect(220, 180, 250, 62)},
+    {"image": "platform_small", "rect": Rect(40, 110, 100, 50)} 
+    ]
 class Player:
     def __init__(self, x, y):
         self.image = "player_idle1"
@@ -31,17 +31,18 @@ class Player:
         self.idle_images = ["player_idle1", "player_idle2"]
         self.idle_index = 0
         self.idle_timer = 0
-
     def draw(self):
         screen.blit(self.image, (self.rect.x, self.rect.y))
 
     def update(self):
+        global player_hurt, hurt_timer
+        if player_hurt:
+            self.image = "player_hurt1"
+            return
         self.vy += 1
         self.on_ground = False
-
         next_rect = self.rect.copy()
         next_rect.y += self.vy
-
         collided = False
         for plat in platforms:
             if next_rect.colliderect(plat["rect"]) and self.vy > 0:
@@ -51,10 +52,8 @@ class Player:
                     self.on_ground = True
                     collided = True
                     break
-
         if not collided:
             self.rect.y += self.vy
-
         if not self.on_ground:
             self.image = "player_jump1"
         else:
@@ -73,9 +72,8 @@ class Player:
                 if self.idle_timer % 60 == 0:
                     self.idle_index = (self.idle_index + 1) % len(self.idle_images)
                 self.image = self.idle_images[self.idle_index]
-
     def jump(self):
-        if self.on_ground:
+        if self.on_ground and not player_hurt:
             self.vy = -18
             if audio_on:
                 sounds.jump.play()
@@ -90,7 +88,6 @@ class Enemy:
         self.facing_right = True
         self.image = self.walk_images_right[0]
         self.speed = 2
-
         self.on_platform = None
         for plat in platforms:
             if self.rect.bottom <= plat["rect"].top + 10 and \
@@ -99,14 +96,12 @@ class Enemy:
                 self.rect.bottom = plat["rect"].top
                 self.on_platform = plat["rect"]
                 break
-
         if self.on_platform:
             self.left_limit = self.on_platform.x
             self.right_limit = self.on_platform.x + self.on_platform.width
         else:
             self.left_limit = 0
             self.right_limit = WIDTH
-
     def draw(self):
         screen.blit(self.image, (self.rect.x, self.rect.y))
 
@@ -125,10 +120,9 @@ class Enemy:
             self.walk_index = (self.walk_index + 1) % 2
         self.image = self.walk_images_right[self.walk_index] if self.facing_right else self.walk_images_left[self.walk_index]
 
-# Criação dos personagens
 player = Player(100, 300)
-enemy1 = Enemy(550 + (250 - 50) // 2, 290 - 82)  # Terceira plataforma
-enemy2 = Enemy(220 + (250 - 50) // 2, 180 - 82)  # Quarta plataforma
+enemy1 = Enemy(550 + (250 - 50) // 2, 290 - 82)
+enemy2 = Enemy(220 + (250 - 50) // 2, 180 - 82)
 
 def draw():
     screen.clear()
@@ -138,32 +132,42 @@ def draw():
         draw_button("Start Game", (WIDTH / 2, 260))
         draw_button(f"Audio: {'ON' if audio_on else 'OFF'}", (WIDTH / 2, 320))
         draw_button("Quit", (WIDTH / 2, 380))
-
     elif game_state == GAME_PLAYING:
         screen.blit("background", (0, 0))
         for plat in platforms:
             screen.blit(plat["image"], (plat["rect"].x, plat["rect"].y))
-            screen.draw.rect(plat["rect"], (0, 255, 0))
-
         player.draw()
-        screen.draw.rect(player.rect, (255, 0, 0))
-        feet = Rect(player.rect.x, player.rect.bottom - 4, player.rect.width, 4)
-        screen.draw.rect(feet, (0, 0, 255))
-
         enemy1.draw()
         enemy2.draw()
 
 def update():
+    global player_hurt, hurt_timer
     if game_state == GAME_PLAYING:
-        if keyboard.left or keyboard.a:
-            player.rect.x -= 5
-        if keyboard.right or keyboard.d:
-            player.rect.x += 5
-
-        player.rect.x = max(0, min(player.rect.x, WIDTH - player.rect.width))
+        if not player_hurt:
+            if keyboard.left or keyboard.a:
+                player.rect.x -= 5
+            if keyboard.right or keyboard.d:
+                player.rect.x += 5
+            player.rect.x = max(0, min(player.rect.x, WIDTH - player.rect.width))
         player.update()
         enemy1.update()
         enemy2.update()
+        player_top = Rect(player.rect.x, player.rect.y, player.rect.width, int(player.rect.height * 0.3))
+        enemy_top1 = Rect(enemy1.rect.x, enemy1.rect.y, enemy1.rect.width, int(enemy1.rect.height * 0.3))
+        enemy_top2 = Rect(enemy2.rect.x, enemy2.rect.y, enemy2.rect.width, int(enemy2.rect.height * 0.3))
+        if not player_hurt and (player_top.colliderect(enemy_top1) or player_top.colliderect(enemy_top2)):
+            player_hurt = True
+            hurt_timer = 5
+            player.image = "player_hurt1"
+            if player.facing_right:
+                player.rect.x -= 30 
+            else:
+                player.rect.x += 30  
+            player.rect.x = max(0, min(player.rect.x, WIDTH - player.rect.width))
+        if player_hurt:
+            hurt_timer -= 1
+            if hurt_timer <= 0:
+                player_hurt = False
 
 def on_key_down(key):
     if game_state == GAME_PLAYING:
@@ -198,8 +202,6 @@ def on_mouse_down(pos, button):
         elif btn_rect(WIDTH / 2, 380).collidepoint(pos):
             sounds.music.stop()
             exit()
-
 if audio_on:
     toggle_music()
-
 pgzrun.go()
