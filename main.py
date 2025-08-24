@@ -124,7 +124,8 @@ def update():
             player.rect.x, player.rect.y, player.vy, player_hurt = 100, 300, 0, False
 
 def on_key_down(key):
-    if game_state == GAME_PLAYING and (key == keys.SPACE or key == keys.UP): player.jump()
+    if game_state == GAME_PLAYING and (key == keys.W or key == keys.UP):player.jump()
+
 
 def btn_rect(cx, cy): return Rect(int(cx - BTN_W / 2), int(cy - BTN_H / 2), BTN_W, BTN_H)
 
